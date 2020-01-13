@@ -50,6 +50,11 @@ class JediCompletion(object):
             # However, this may have more false positives trying to identify Windows/*nix hybrids
             self.drive_mount = ''
 
+        # preload shit
+        jedi.preload_module('numpy')
+        jedi.preload_module('torch')
+        jedi.preload_module('torch.nn')
+
     def _get_definition_type(self, definition):
         # if definition.type not in ['import', 'keyword'] and is_built_in():
         #    return 'builtin'
@@ -192,30 +197,30 @@ class JediCompletion(object):
         """
         _completions = []
 
-        for signature, name, value in self._get_call_signatures(script):
-            if not self.fuzzy_matcher and not name.lower().startswith(
-                    prefix.lower()):
-                continue
-            _completion = {
-                'type': 'property',
-                'raw_type': '',
-                'rightLabel': self._additional_info(signature)
-            }
-            _completion['description'] = ''
-            _completion['raw_docstring'] = ''
+        # for signature, name, value in self._get_call_signatures(script):
+        #     if not self.fuzzy_matcher and not name.lower().startswith(
+        #             prefix.lower()):
+        #         continue
+        #     _completion = {
+        #         'type': 'property',
+        #         'raw_type': '',
+        #         'rightLabel': self._additional_info(signature)
+        #     }
+        #     _completion['description'] = ''
+        #     _completion['raw_docstring'] = ''
 
-            # we pass 'text' here only for fuzzy matcher
-            if value:
-                _completion['snippet'] = '%s=${1:%s}$0' % (name, value)
-                _completion['text'] = '%s=' % (name)
-            else:
-                _completion['snippet'] = '%s=$1$0' % name
-                _completion['text'] = name
-                _completion['displayText'] = name
-            _completions.append(_completion)
+        #     # we pass 'text' here only for fuzzy matcher
+        #     if value:
+        #         _completion['snippet'] = '%s=${1:%s}$0' % (name, value)
+        #         _completion['text'] = '%s=' % (name)
+        #     else:
+        #         _completion['snippet'] = '%s=$1$0' % name
+        #         _completion['text'] = name
+        #         _completion['displayText'] = name
+        #     _completions.append(_completion)
 
         try:
-            completions = script.completions()
+            completions = script.completions(fuzzy=True)
         except KeyError:
             completions = []
         except :
@@ -224,17 +229,17 @@ class JediCompletion(object):
             try:
                 _completion = {
                     'text': completion.name,
-                    'type': self._get_definition_type(completion),
-                    'raw_type': completion.type,
-                    'rightLabel': self._additional_info(completion)
+                    'type': '',  # self._get_definition_type(completion),
+                    'raw_type': '', # completion.type,
+                    'rightLabel': '', # self._additional_info(completion)
                 }
             except Exception:
                 continue
 
-            for c in _completions:
-                if c['text'] == _completion['text']:
-                    c['type'] = _completion['type']
-                    c['raw_type'] = _completion['raw_type']
+            # for c in _completions:
+            #     if c['text'] == _completion['text']:
+            #         c['type'] = _completion['type']
+            #         c['raw_type'] = _completion['raw_type']
 
             if any([c['text'].split('=')[0] == _completion['text']
                     for c in _completions]):
@@ -568,10 +573,13 @@ class JediCompletion(object):
                     environment=self.environment),
                 request['id'])
 
-        script = jedi.Script(
-            source=request.get('source', None), line=request['line'] + 1,
-            column=request['column'], path=request.get('path', ''),
-            sys_path=sys.path, environment=self.environment)
+        try:
+            script = jedi.Script(
+                source=request.get('source', None), line=request['line'] + 1,
+                column=request['column'], path=request.get('path', ''),
+                sys_path=sys.path, environment=self.environment)
+        except:
+            return json.dumps({'id': request['id'], 'results': []})
 
         if lookup == 'definitions':
             defs = self._get_definitionsx(script.goto_assignments(follow_imports=True), request['id'])
